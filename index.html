@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Logger Test</title>
+</head>
+<body>
+    <h1>Cookie Logger Test</h1>
+    <button id="logCookies">Log My Cookies</button>
+    <p id="status"></p>
+
+    <script>
+        document.getElementById('logCookies').addEventListener('click', async () => {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = 'Logging...';
+
+            try {
+                // Send a request to the Netlify function
+                const response = await fetch('/.netlify/functions/cookie-logger', {
+                    method: 'POST', // Netlify functions can handle POST/GET
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    // Include cookies in the request
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    statusEl.textContent = 'Cookies logged successfully!';
+                } else {
+                    statusEl.textContent = 'Error: ' + data.error;
+                }
+            } catch (error) {
+                statusEl.textContent = 'Network Error: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>
